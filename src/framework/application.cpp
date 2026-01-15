@@ -21,6 +21,8 @@ Application::Application(const char* caption, int width, int height)
 
 Application::~Application()
 {
+    
+    
 }
 
 void Application::Init(void)
@@ -29,12 +31,26 @@ void Application::Init(void)
 }
 
 // Render one frame
+// prueba MARTINA
 void Application::Render(void)
 {
-	// ...
-
+    int x = window_width / 2;
+    int y = window_height / 2;
+    Color color = Color::WHITE;
+    
+    framebuffer.Fill(Color::BLACK);
+    framebuffer.DrawLineDDA(x, y, x + 100 * cos(time), y + 100 * sin(time), color);
+    
+        framebuffer.DrawRect(
+            100, 100,
+            300, 200,
+            Color::RED,
+            true,
+            Color::GREEN
+        );
 	framebuffer.Render();
 }
+
 
 // Called after render
 void Application::Update(float seconds_elapsed)

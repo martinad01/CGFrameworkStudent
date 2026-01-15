@@ -192,6 +192,60 @@ bool Image::LoadPNG(const char* filename, bool flip_y)
 	return true;
 }
 
+//this is our raster / drawing methods (MARTINA)
+void Image::DrawLineDDA(int x0, int y0, int x1, int y1, const Color& c)
+{
+    //vector coordinates
+    int dx = x1 - x0;
+    int dy = y1 - y0;
+
+    // number of steps
+    int d = std::max(std::abs(dx), std::abs(dy));
+
+    // if it is a single point (dx = dy)
+    if (d == 0)
+    {
+        if (x0 >= 0 && x0 < (int)width && y0 >= 0 && y0 < (int)height)
+            SetPixel((unsigned int)x0, (unsigned int)y0, c);
+        return;
+    }
+
+    // direction step
+    float vx = (float)dx / (float)d;
+    float vy = (float)dy / (float)d;
+
+    float x = (float)x0;
+    float y = (float)y0;
+
+    for (int i = 0; i <= d; ++i)
+    {
+    //paint pixel at position [ floor(x), floor(y) ]
+        SetPixel((int)x,(int)y,c);
+    //increment x and y by v
+        x += vx;
+        y += vy;
+    }
+}
+
+//rasterizig triangles (MARTINA)
+void Image::DrawRect(int x, int y, int w, int h, const Color& borderColor, int borderWidth, bool isFilled, const Color& fillColor){
+    int x0 = x;
+    int y0 = y;
+    int x1 = x + w - 1;
+    int y1 = y +h -1;
+    
+    int px = x;
+    int py = y;
+    
+    for(int i = py; i <= y + h - 1; i++){
+        for(int j = px; j <= x + w -1; j++){
+            SetPixel((unsigned int) px, (unsigned int) py, borderColor);
+        }
+    }
+}
+
+
+
 // Loads an image from a TGA file
 bool Image::LoadTGA(const char* filename, bool flip_y)
 {

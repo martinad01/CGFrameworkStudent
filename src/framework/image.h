@@ -43,6 +43,9 @@ public:
 	Image(unsigned int width, unsigned int height);
 	Image(const Image& c);
 	Image& operator = (const Image& c); // Assign operator
+    void DrawLineDDA(int x0, int y0, int x1, int y1, const Color& c); // MARTINA
+    void DrawRect(int x, int y, int w, int h, const Color& borderColor,int borderWidth,bool isFilled, const Color& fillColor); //MARTINA
+    
 
 	// Destructor
 	~Image();
