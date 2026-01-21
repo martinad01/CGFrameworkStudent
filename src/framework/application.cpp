@@ -1,7 +1,15 @@
 #include "application.h"
 #include "mesh.h"
 #include "shader.h"
-#include "utils.h" 
+//de la 4 a la 12 escrito por M
+#include "utils.h"
+#include <iostream>
+
+void Application::Init(void)
+{
+    std::cout << "Initiating app..." << std::endl;
+}
+
 
 Application::Application(const char* caption, int width, int height)
 {
@@ -24,33 +32,22 @@ Application::~Application()
     
     
 }
-
-void Application::Init(void)
-{
-	std::cout << "Initiating app..." << std::endl;
-}
-
-// Render one frame
-// prueba MARTINA
+//de la 35 a la 49 escrito por M
 void Application::Render(void)
 {
-    int x = window_width / 2;
-    int y = window_height / 2;
-    Color color = Color::WHITE;
-    
     framebuffer.Fill(Color::BLACK);
-    framebuffer.DrawLineDDA(x, y, x + 100 * cos(time), y + 100 * sin(time), color);
-    
-        framebuffer.DrawRect(
-            100, 100,
-            300, 200,
-            Color::RED,
-            true,
-            Color::GREEN
-        );
-	framebuffer.Render();
-}
 
+    framebuffer.DrawRect(
+        100, 100,
+        400, 300,
+        Color::RED,
+        1,
+        true,
+        Color::RED
+    );
+
+    framebuffer.Render();
+}
 
 // Called after render
 void Application::Update(float seconds_elapsed)
@@ -58,7 +55,7 @@ void Application::Update(float seconds_elapsed)
 
 }
 
-//keyboard press event 
+//keyboard press event
 void Application::OnKeyPressed( SDL_KeyboardEvent event )
 {
 	// KEY CODES: https://wiki.libsdl.org/SDL2/SDL_Keycode
@@ -94,6 +91,6 @@ void Application::OnWheel(SDL_MouseWheelEvent event)
 }
 
 void Application::OnFileChanged(const char* filename)
-{ 
+{
 	Shader::ReloadSingleShader(filename);
 }
