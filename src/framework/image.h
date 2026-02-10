@@ -20,7 +20,7 @@ class FloatImage;
 class Entity;
 class Camera;
 
-//de la 23 a la 33 escrito por M
+
 // A matrix of pixels
 class Image
 {
@@ -48,6 +48,7 @@ public:
     void DrawLineDDA(int x0, int y0, int x1, int y1, const Color& c); // MARTINA
     void DrawRect(int x, int y, int w, int h, const Color& borderColor,int borderWidth,bool isFilled, const Color& fillColor); //MARTINA
     void DrawTriangle(const Vector2& p0, const Vector2& p1, const Vector2& p2, const Color& borderColor, bool isFilled, const Color& fillColor);
+    void DrawImage(const Image& image, int x, int y);
 
 	// Destructor
 	~Image();

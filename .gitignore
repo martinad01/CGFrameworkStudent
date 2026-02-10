@@ -1,3 +1,7 @@
 build/*
 .vs/*
 .vscode/*
+build/
+build-xcode/
+build_xcode/
+*.DS_Store
