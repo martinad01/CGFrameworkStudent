@@ -2,6 +2,7 @@
 #include "mesh.h"
 #include "shader.h"
 #include "utils.h"
+#include <algorithm>
 
 Application::Application(const char* caption, int width, int height)
 {
@@ -21,6 +22,10 @@ Application::Application(const char* caption, int width, int height)
 
 Application::~Application()
 {
+    //destructor lab 2
+    if (camera3D) delete camera3D;
+    camera3D = nullptr;
+
 }
 //----LAB1-----------
 void Application::Init(void)
@@ -75,23 +80,68 @@ void Application::Init(void)
     }
 
     particleSystem.Init();
+    
+    // ===== Lab 2/3 init =====
+    camera3D = new Camera();
+
+    camera3D->SetPerspective(70.0f, framebuffer.width / (float)framebuffer.height, 0.1f, 1000.0f);
+    camera3D->LookAt(Vector3(0, 2, 8), Vector3(0, 0, 0), Vector3(0, 1, 0));
+
+    // Crear 3 meshes (pueden ser cubos al principio)
+    meshes[0].CreateCube(1.0f);
+    meshes[1].CreateCube(1.0f);
+    meshes[2].CreateCube(1.0f);
+
+    // Link mesh->entity + parámetros base
+    for (int i = 0; i < 3; ++i)
+    {
+        entities[i].mesh = &meshes[i];
+        entities[i].animPhase = i * 1.2f;
+        entities[i].baseScale = Vector3(1,1,1);
+    }
+
+    // Posiciones distintas
+    entities[0].basePos = Vector3(-2, 0, 0);
+    entities[1].basePos = Vector3( 0, 0, 0);
+    entities[2].basePos = Vector3( 2, 0, 0);
+    
+    camera3D->LookAt(Vector3(0, 2, orbitDistance), Vector3(0,0,0), Vector3(0,1,0));
+
+
+
 }
 
 
-// Render one frame
 void Application::Render(void)
 {
-    // toolbar background
-    framebuffer.DrawRect(0, 0, window_width, 50, Color::GRAY, 0, true, Color::GRAY);
+    // 1) Limpiar primero
+    framebuffer.Fill(Color(0,0,0));
 
-    // buttons
-    for (size_t i = 0; i < toolbarButtons.size(); ++i)
-        toolbarButtons[i].Render(framebuffer);
+    // 2) Dibujar 3D si está activado (Lab 2)
+    if (show3D && camera3D)
+    {
+        if (renderMode == SINGLE_ENTITY)
+        {
+            entities[0].RenderWireframe(&framebuffer, camera3D);
+        }
+        else if (renderMode == MULTI_ENTITY)
+        {
+            for (int i = 0; i < 3; ++i)
+                entities[i].RenderWireframe(&framebuffer, camera3D);
+        }
+    }
 
-    // animation mode
+    // 3) UI encima (Lab 1) - toolbar + botones// COMENTADO PARA LAB 2
+    //framebuffer.DrawRect(0, 0, window_width, 50, Color::GRAY, 0, true, Color::GRAY);
+
+    //for (size_t i = 0; i < toolbarButtons.size(); ++i)
+        //toolbarButtons[i].Render(framebuffer);
+
+    // 4) Animación si corresponde (Lab 1)
     if (mode == MODE_ANIMATION)
         particleSystem.Render(&framebuffer);
 
+    // 5) Presentar
     framebuffer.Render();
 }
 
@@ -99,13 +149,16 @@ void Application::Render(void)
 // Called after render
 void Application::Update(float dt)
 {
-    if (mode == MODE_ANIMATION)
-        particleSystem.Update(dt);
+    time += dt;
+    float t = time;
+    for (int i = 0; i < 3; ++i)
+        entities[i].Update(t);
+
 }
 
 
 //(MATEO): key pressing modes
-void Application::OnKeyPressed(SDL_KeyboardEvent event)
+/*void Application::OnKeyPressed(SDL_KeyboardEvent event)
 {
     // Debug: show pressed key
     std::cout << "Key pressed: " << event.keysym.sym << std::endl;
@@ -159,8 +212,83 @@ void Application::OnKeyPressed(SDL_KeyboardEvent event)
         case SDLK_f:
             isFilled = !isFilled;
             break;
+            
+
+    }
+}*/
+
+// KEY SETUP LAB 2
+void Application::OnKeyPressed(SDL_KeyboardEvent event)
+{
+    int k = (int)event.keysym.sym;
+    if (k >= 'A' && k <= 'Z') k = k - 'A' + 'a'; // tolower sin include
+
+    // Render modes
+    if (k == '1')
+        this->renderMode = SINGLE_ENTITY;
+
+    if (k == '2')
+        this->renderMode = MULTI_ENTITY;
+
+    // Si no hay cámara 3D, no seguimos
+    if (!this->camera3D)
+        return;
+
+    // Select camera property
+    if (k == 'n')
+        this->currentProperty = PROP_NEAR;
+
+    if (k == 'f')
+        this->currentProperty = PROP_FAR;
+
+    if (k == 'v')
+        this->currentProperty = PROP_FOV;
+    if (k == 'n') this->camera3D->fov = 70.0f;
+    if (k == 'v') this->camera3D->fov = 40.0f;
+    this->camera3D->UpdateProjectionMatrix();
+
+    // Adjust selected property
+    if (k == '+' || k == '-')
+    {
+        bool increase = (k == '+');
+        float sign = increase ? 1.0f : -1.0f;
+
+        if (this->currentProperty == PROP_NEAR)
+        {
+            this->camera3D->near_plane += sign * 0.1f;
+
+            // clamps
+            if (this->camera3D->near_plane < 0.01f)
+                this->camera3D->near_plane = 0.01f;
+
+            if (this->camera3D->near_plane > this->camera3D->far_plane - 0.1f)
+                this->camera3D->near_plane = this->camera3D->far_plane - 0.1f;
+        }
+        else if (this->currentProperty == PROP_FAR)
+        {
+            this->camera3D->far_plane += sign * 0.5f;
+
+            if (this->camera3D->far_plane < this->camera3D->near_plane + 0.1f)
+                this->camera3D->far_plane = this->camera3D->near_plane + 0.1f;
+        }
+        else if (this->currentProperty == PROP_FOV)
+        {
+            // "+" hace el objeto más grande => bajar FOV
+            this->camera3D->fov += (-sign) * 1.0f;
+
+            if (this->camera3D->fov < 10.0f)
+                this->camera3D->fov = 10.0f;
+
+            if (this->camera3D->fov > 120.0f)
+                this->camera3D->fov = 120.0f;
+        }
+
+        // Recalcular matrices
+        this->camera3D->UpdateProjectionMatrix();
     }
 }
+
+
 
 void Application::OnMouseButtonDown(SDL_MouseButtonEvent event)
 {
@@ -350,6 +478,26 @@ void Application::OnMouseMove(SDL_MouseButtonEvent event)
             framebuffer.DrawRect(rx, ry, rw, rh, drawingColor, borderWidth, isFilled, drawingColor);
         }
     }
+    
+    if (mouse_state & SDL_BUTTON(SDL_BUTTON_LEFT))
+    {
+        orbitYaw   += mouse_delta.x * 0.005f;
+        orbitPitch += mouse_delta.y * 0.005f;
+
+        // clamp pitch
+        if (orbitPitch > 1.5f) orbitPitch = 1.5f;
+        if (orbitPitch < -1.5f) orbitPitch = -1.5f;
+
+        Vector3 dir;
+        dir.x = cosf(orbitPitch) * sinf(orbitYaw);
+        dir.y = sinf(orbitPitch);
+        dir.z = cosf(orbitPitch) * cosf(orbitYaw);
+
+        Vector3 eye = camera3D->center - dir * orbitDistance;
+
+        camera3D->LookAt(eye, camera3D->center, Vector3(0,1,0));
+    }
+
 }
 
 

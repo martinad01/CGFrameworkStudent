@@ -12,6 +12,12 @@
 #include "button.h"
 #include "particle_system.h"
 
+#include "entity.h"
+#include "camera.h"
+#include "mesh.h"
+
+
+
 class Application
 {
 public:
@@ -49,6 +55,19 @@ public:
     int borderWidth = 2;
 
     Color drawingColor = Color::WHITE;
+    
+    
+    // 2.5 lab 2
+    enum RenderMode { SINGLE_ENTITY, MULTI_ENTITY };
+    RenderMode renderMode = SINGLE_ENTITY;
+
+    enum CameraProperty { PROP_NEAR, PROP_FAR, PROP_FOV };
+    CameraProperty currentProperty = PROP_FOV;
+
+    float orbitYaw = 0.0f;
+    float orbitPitch = 0.3f;
+    float orbitDistance = 8.0f;
+
 
     // toolbar user interaction
     std::vector<Button> toolbarButtons;
@@ -69,6 +88,13 @@ public:
 
     // for animation mode
     ParticleSystem particleSystem;
+    
+    // ===== Lab 2/3: 3D CPU Renderer =====
+    Camera* camera3D = nullptr;
+    Entity entities[3];
+    Mesh meshes[3];
+    bool show3D = true; // luego lo usaremos para activar/desactivar
+
 
     // handle button
     void HandleButton(ButtonType type);

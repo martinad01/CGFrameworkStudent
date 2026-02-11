@@ -82,46 +82,78 @@ void Camera::LookAt(const Vector3& eye, const Vector3& center, const Vector3& up
 
 void Camera::UpdateViewMatrix()
 {
-	// Reset Matrix (Identity)
-	view_matrix.SetIdentity();
+    // Camera basis (right, up, front) using LookAt convention
+    // front points from eye to center
+    Vector3 front = (center - eye);
+    front.Normalize();
 
-	// Comment this line to create your own projection matrix!
-	SetExampleViewMatrix();
+    Vector3 right = front.Cross(up);
+    right.Normalize();
 
-	// Remember how to fill a Matrix4x4 (check framework slides)
-	// Careful with the order of matrix multiplications, and be sure to use normalized vectors!
-	
-	// Create the view matrix rotation
-	// ...
-	// view_matrix.M[3][3] = 1.0;
+    Vector3 camUp = right.Cross(front);
+    camUp.Normalize();
 
-	// Translate view matrix
-	// ...
+    view_matrix.SetIdentity();
 
-	UpdateViewProjectionMatrix();
+    // Rotation part (column-major, M*p)
+    view_matrix.M[0][0] = right.x;  view_matrix.M[0][1] = right.y;  view_matrix.M[0][2] = right.z;
+    view_matrix.M[1][0] = camUp.x;  view_matrix.M[1][1] = camUp.y;  view_matrix.M[1][2] = camUp.z;
+    view_matrix.M[2][0] = -front.x; view_matrix.M[2][1] = -front.y; view_matrix.M[2][2] = -front.z;
+
+    // Translation part
+    view_matrix.M[3][0] = -right.Dot(eye);
+    view_matrix.M[3][1] = -camUp.Dot(eye);
+    view_matrix.M[3][2] =  front.Dot(eye);
+
+    UpdateViewProjectionMatrix();
 }
+
 
 // Create a projection matrix
 void Camera::UpdateProjectionMatrix()
 {
-	// Reset Matrix (Identity)
-	projection_matrix.SetIdentity();
+    projection_matrix.SetIdentity();
+    projection_matrix.Clear(); // por si SetIdentity deja basura en algunos frameworks
 
-	// Comment this line to create your own projection matrix!
-	SetExampleProjectionMatrix();
+    if (type == PERSPECTIVE)
+    {
+        // fov is in degrees in your class
+        float fov_rad = fov * DEG2RAD;
+        float f = 1.0f / tanf(fov_rad * 0.5f);
 
-	// Remember how to fill a Matrix4x4 (check framework slides)
-	
-	if (type == PERSPECTIVE) {
-		// projection_matrix.M[2][3] = -1;
-		// ...
-	}
-	else if (type == ORTHOGRAPHIC) {
-		// ...
-	} 
+        float n = near_plane;
+        float fa = far_plane;
 
-	UpdateViewProjectionMatrix();
+        // Column-major, column-vectors (M*p)
+        projection_matrix.M[0][0] = f / aspect;
+        projection_matrix.M[1][1] = f;
+
+        // Right-handed style with -1 in [2][3] (OpenGL-like)
+        projection_matrix.M[2][2] = (fa + n) / (n - fa);
+        projection_matrix.M[2][3] = -1.0f;
+
+        projection_matrix.M[3][2] = (2.0f * fa * n) / (n - fa);
+        projection_matrix.M[3][3] = 0.0f;
+    }
+    else if (type == ORTHOGRAPHIC)
+    {
+        float l = left, r = right, b = bottom, t = top;
+        float n = near_plane, f = far_plane;
+
+        projection_matrix.SetIdentity();
+        projection_matrix.M[0][0] = 2.0f / (r - l);
+        projection_matrix.M[1][1] = 2.0f / (t - b);
+        projection_matrix.M[2][2] = -2.0f / (f - n);
+
+        projection_matrix.M[3][0] = -(r + l) / (r - l);
+        projection_matrix.M[3][1] = -(t + b) / (t - b);
+        projection_matrix.M[3][2] = -(f + n) / (f - n);
+        projection_matrix.M[3][3] = 1.0f;
+    }
+
+    UpdateViewProjectionMatrix();
 }
+
 
 void Camera::UpdateViewProjectionMatrix()
 {
