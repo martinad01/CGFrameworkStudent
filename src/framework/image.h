@@ -49,6 +49,23 @@ public:
     void DrawRect(int x, int y, int w, int h, const Color& borderColor,int borderWidth,bool isFilled, const Color& fillColor); //MARTINA
     void DrawTriangle(const Vector2& p0, const Vector2& p1, const Vector2& p2, const Color& borderColor, bool isFilled, const Color& fillColor);
     void DrawImage(const Image& image, int x, int y);
+    // 3.2 — Barycentric color interpolation
+    void DrawTriangleInterpolated(const Vector3& p0, const Vector3& p1, const Vector3& p2,
+                                  const Color& c0, const Color& c1, const Color& c2);
+
+    // 3.3 — Barycentric + Z-buffer
+    void DrawTriangleInterpolated(const Vector3& p0, const Vector3& p1, const Vector3& p2,
+                                  const Color& c0, const Color& c1, const Color& c2,
+                                  FloatImage* zbuffer);
+
+    // 3.4 — Barycentric + Z-buffer + Texture + UVs
+    void DrawTriangleInterpolated(const Vector3& p0, const Vector3& p1, const Vector3& p2,
+                                  const Color& c0, const Color& c1, const Color& c2,
+                                  FloatImage* zbuffer,
+                                  Image* texture,
+                                  const Vector2& uv0, const Vector2& uv1, const Vector2& uv2);
+
+
 
 	// Destructor
 	~Image();

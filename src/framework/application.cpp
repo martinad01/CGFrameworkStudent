@@ -99,14 +99,25 @@ void Application::Init(void)
     for (int i = 0; i < 3; ++i)
     {
         entities[i].mesh = &meshes[i];
+        entities[i].mode = Entity::eRenderMode::TRIANGLES;
         entities[i].animPhase = i * 1.2f;
-        entities[i].baseScale = Vector3(1,1,1);
+        entities[i].baseScale = Vector3(1.5f,1.5f,1.5f);
     }
 
     // Posiciones distintas
     entities[0].basePos = Vector3(-2, 0, 0);
     entities[1].basePos = Vector3( 0, 0, 0);
     entities[2].basePos = Vector3( 2, 0, 0);
+    
+    // ===== Lab 3.4: Load texture =====
+    static Image leeTexture;
+    leeTexture.LoadTGA("textures/lee_color_specular.tga", true);
+
+    entities[0].texture = &leeTexture;
+    entities[1].texture = &leeTexture;
+    entities[2].texture = &leeTexture;
+
+
     
     camera3D->LookAt(Vector3(0, 2, orbitDistance), Vector3(0,0,0), Vector3(0,1,0));
 
@@ -121,18 +132,34 @@ void Application::Render(void)
     framebuffer.Fill(Color(0,0,0));
 
     // 2) Dibujar 3D si está activado (Lab 2)
-    // 2) Dibujar 3D si está activado (Lab 2)
     if (show3D && camera3D)
     {
+        // Asegurar tamaño del zbuffer = framebuffer
+        if (zbuffer.width != framebuffer.width || zbuffer.height != framebuffer.height)
+            zbuffer.Resize(framebuffer.width, framebuffer.height);
+
+        // Inicializar profundidad a "muy lejos"
+        if (useZBuffer)
+            zbuffer.Fill(1e9f);
+
+        FloatImage* zptr = useZBuffer ? &zbuffer : nullptr;
+
         if (renderMode == SINGLE_ENTITY)
         {
-            entities[0].Render(&framebuffer, camera3D, Color::WHITE);
+            entities[0].Render(&framebuffer, camera3D, zptr);
         }
         else if (renderMode == MULTI_ENTITY)
         {
-            entities[0].Render(&framebuffer, camera3D, Color::WHITE);
-            entities[1].Render(&framebuffer, camera3D, Color::RED);
-            entities[2].Render(&framebuffer, camera3D, Color::RED);
+            entities[0].Render(&framebuffer, camera3D, zptr);
+            entities[1].Render(&framebuffer, camera3D, zptr);
+            entities[2].Render(&framebuffer, camera3D, zptr);
+        }
+
+        else if (renderMode == MULTI_ENTITY)
+        {
+            entities[0].Render(&framebuffer, camera3D, &zbuffer);
+            entities[1].Render(&framebuffer, camera3D, &zbuffer);
+            entities[2].Render(&framebuffer, camera3D, &zbuffer);
         }
     }
 
@@ -229,6 +256,8 @@ void Application::OnKeyPressed(SDL_KeyboardEvent event)
 {
     int sym = (int)event.keysym.sym;
 
+    std::cout << "KEY sym=" << sym << " sc=" << (int)event.keysym.scancode << std::endl;
+
     // normaliza letras mayúsculas
     if (sym >= 'A' && sym <= 'Z')
         sym = sym - 'A' + 'a';
@@ -236,6 +265,44 @@ void Application::OnKeyPressed(SDL_KeyboardEvent event)
     // 1 / 2
     if (sym == '1') renderMode = SINGLE_ENTITY;
     else if (sym == '2') renderMode = MULTI_ENTITY;
+    
+    // W: toggle WIREFRAME (Lab2) <-> TRIANGLES (Lab3)
+    if (sym == 'w')
+    {
+        for (int i = 0; i < 3; ++i)
+        {
+            if (entities[i].mode == Entity::eRenderMode::WIREFRAME)
+                entities[i].mode = Entity::eRenderMode::TRIANGLES;
+            else
+                entities[i].mode = Entity::eRenderMode::WIREFRAME;
+        }
+        return; // no tocar cámara con esta tecla
+    }
+
+    // Z: toggle Z-buffer (occlusions)
+    if (sym == 'z')
+    {
+        useZBuffer = !useZBuffer;
+        return;
+    }
+
+    // T: toggle texture / color per vertex
+    if (sym == 't')
+    {
+        for (int i = 0; i < 3; ++i)
+            entities[i].useTexture = !entities[i].useTexture;
+
+        return;
+    }
+    // C: toggle UV interpolation / plain color
+    if (sym == 'c')
+    {
+        for (int i = 0; i < 3; ++i)
+            entities[i].interpolateUV = !entities[i].interpolateUV;
+
+        std::cout << "[C] interpolateUV = " << (entities[0].interpolateUV ? "true" : "false") << std::endl;
+        return;
+    }
 
     if (!camera3D) return;
 

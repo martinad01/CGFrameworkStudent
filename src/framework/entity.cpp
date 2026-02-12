@@ -42,10 +42,19 @@ static bool InsideClipCube(const Vector3& p)
 }
 
 
-void Entity::Render(Image* framebuffer, Camera* camera, const Color& c)
+void Entity::Render(Image* framebuffer, Camera* camera, FloatImage* zBuffer)
 {
     if (!mesh || !framebuffer || !camera)
         return;
+
+    if (mode == eRenderMode::TRIANGLES)
+    {
+        RenderTriangles(framebuffer, camera, zBuffer);
+        return;
+    }
+
+    // Wireframe: usamos un color fijo por ahora (Lab 2 toggle W lo manejará igual)
+    const Color c = Color::WHITE;
 
     const std::vector<Vector3>& vertices = mesh->GetVertices();
 
@@ -71,11 +80,13 @@ void Entity::Render(Image* framebuffer, Camera* camera, const Color& c)
         float x2 = (nc.x * 0.5f + 0.5f) * framebuffer->width;
         float y2 = (1.0f - (nc.y * 0.5f + 0.5f)) * framebuffer->height;
 
-        framebuffer->DrawLineDDA(x0, y0, x1, y1, c);
-        framebuffer->DrawLineDDA(x1, y1, x2, y2, c);
-        framebuffer->DrawLineDDA(x2, y2, x0, y0, c);
+        framebuffer->DrawLineDDA((int)x0, (int)y0, (int)x1, (int)y1, c);
+        framebuffer->DrawLineDDA((int)x1, (int)y1, (int)x2, (int)y2, c);
+        framebuffer->DrawLineDDA((int)x2, (int)y2, (int)x0, (int)y0, c);
     }
 }
+
+
 
 
 
@@ -86,7 +97,7 @@ static inline Vector3 NDCToScreen(const Vector3& ndc, int w, int h)
     return Vector3(x, y, ndc.z);
 }
 
-void Entity::RenderTriangles(Image* framebuffer, Camera* camera, const Color& c)
+void Entity::RenderTriangles(Image* framebuffer, Camera* camera, FloatImage* zBuffer)
 {
     if (!mesh || !framebuffer || !camera)
         return;
@@ -114,19 +125,43 @@ void Entity::RenderTriangles(Image* framebuffer, Camera* camera, const Color& c)
         Vector3 b = NDCToScreen(nb, framebuffer->width, framebuffer->height);
         Vector3 c2 = NDCToScreen(nc, framebuffer->width, framebuffer->height);
 
-        // Filled triangle (NECESITAMOS esta función en Image)
-        Vector2 p0(a.x, a.y);
-        Vector2 p1(b.x, b.y);
-        Vector2 p2(c2.x, c2.y);
+        // 3.2: colores por vértice + barycentric interpolation
+        // (por ahora generamos 3 colores distintos; luego en 3.4 usaremos UV/texture)
+        const std::vector<Vector2>& uvs = mesh->GetUVs();
 
-        framebuffer->DrawTriangle(
-            p0,
-            p1,
-            p2,
-            c,        // border color
-            true,     // filled
-            c         // fill color
-        );
+        Color ca = Color::RED;
+        Color cb = Color::GREEN;
+        Color cc = Color::BLUE;
+
+        // UVs por vértice (si el modelo no tiene UVs, ponemos 0 para evitar crash)
+        Vector2 uv0(0.0f, 0.0f);
+        Vector2 uv1(0.0f, 0.0f);
+        Vector2 uv2(0.0f, 0.0f);
+
+        if (uvs.size() == vertices.size())
+        {
+            uv0 = uvs[i];
+            uv1 = uvs[i + 1];
+            uv2 = uvs[i + 2];
+        }
+        if (!interpolateUV)
+        {
+            // modo incorrecto: usar solo UV del primer vértice
+            uv1 = uv0;
+            uv2 = uv0;
+        }
+
+        if (useTexture)
+        {
+            framebuffer->DrawTriangleInterpolated(a, b, c2, ca, cb, cc, zBuffer, texture, uv0, uv1, uv2);
+        }
+        else
+        {
+            framebuffer->DrawTriangleInterpolated(a, b, c2, ca, cb, cc, zBuffer);
+        }
+
+
+        
     }
 }
 

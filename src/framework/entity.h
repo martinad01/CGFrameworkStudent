@@ -17,17 +17,23 @@ class Entity {
 public:
     Mesh* mesh;
     Matrix44 model;
+    Image* texture = nullptr;
+
 
     Entity();
     void Update(float seconds_elapsed);
     
-    void Render(Image* framebuffer, Camera* camera, const Color& c);
+    void Render(Image* framebuffer, Camera* camera, FloatImage* zBuffer);
     float animPhase = 0.0f;
     Vector3 basePos = Vector3(0,0,0);
     Vector3 baseScale = Vector3(1,1,1);
     enum class eRenderMode { WIREFRAME, TRIANGLES };
     eRenderMode mode = eRenderMode::WIREFRAME;
-    void RenderTriangles(Image* framebuffer, Camera* camera, const Color& c);
+    void RenderTriangles(Image* framebuffer, Camera* camera, FloatImage* zBuffer);
+    bool useTexture = true;
+    bool interpolateUV = true;
+
+
 
 
 };

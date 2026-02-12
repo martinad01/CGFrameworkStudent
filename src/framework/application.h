@@ -44,6 +44,7 @@ public:
     void OnFileChanged(const char* filename);
 
     // CPU Global framebuffer
+    FloatImage zbuffer;
     Image framebuffer;
     enum AppMode { MODE_PAINT, MODE_ANIMATION };
     enum Tool { TOOL_PENCIL, TOOL_ERASER, TOOL_LINE, TOOL_RECT, TOOL_TRIANGLE };
@@ -53,6 +54,8 @@ public:
 
     bool isFilled = false;
     int borderWidth = 2;
+    bool useZBuffer = true;
+
 
     Color drawingColor = Color::WHITE;
     

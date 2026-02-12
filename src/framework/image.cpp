@@ -533,3 +533,216 @@ void FloatImage::Resize(unsigned int width, unsigned int height)
     this->height = height;
     pixels = new_pixels;
 }
+
+
+void Image::DrawTriangleInterpolated(const Vector3& p0, const Vector3& p1, const Vector3& p2,
+                                     const Color& c0, const Color& c1, const Color& c2)
+{
+    float minXf = std::min(p0.x, std::min(p1.x, p2.x));
+    float maxXf = std::max(p0.x, std::max(p1.x, p2.x));
+    float minYf = std::min(p0.y, std::min(p1.y, p2.y));
+    float maxYf = std::max(p0.y, std::max(p1.y, p2.y));
+
+    int minX = (int)std::floor(minXf);
+    int maxX = (int)std::ceil(maxXf);
+    int minY = (int)std::floor(minYf);
+    int maxY = (int)std::ceil(maxYf);
+
+    if (minX < 0) minX = 0;
+    if (minY < 0) minY = 0;
+    if (maxX >= (int)width)  maxX = width - 1;
+    if (maxY >= (int)height) maxY = height - 1;
+
+    float denom = ((p1.y - p2.y) * (p0.x - p2.x) +
+                   (p2.x - p1.x) * (p0.y - p2.y));
+
+    if (fabs(denom) < 1e-8f)
+        return;
+
+    for (int y = minY; y <= maxY; ++y)
+    {
+        for (int x = minX; x <= maxX; ++x)
+        {
+            float px = x + 0.5f;
+            float py = y + 0.5f;
+
+            float w0 = ((p1.y - p2.y) * (px - p2.x) +
+                        (p2.x - p1.x) * (py - p2.y)) / denom;
+
+            float w1 = ((p2.y - p0.y) * (px - p2.x) +
+                        (p0.x - p2.x) * (py - p2.y)) / denom;
+
+            float w2 = 1.0f - w0 - w1;
+
+            if (w0 < 0.0f || w1 < 0.0f || w2 < 0.0f)
+                continue;
+
+            Color col = c0 * w0 + c1 * w1 + c2 * w2;
+            SetPixel(x, y, col);
+        }
+    }
+}
+
+
+
+void Image::DrawTriangleInterpolated(const Vector3& p0, const Vector3& p1, const Vector3& p2,
+                                     const Color& c0, const Color& c1, const Color& c2,
+                                     FloatImage* zbuffer)
+{
+    if (!zbuffer)
+    {
+        DrawTriangleInterpolated(p0, p1, p2, c0, c1, c2);
+        return;
+    }
+
+    float minXf = std::min(p0.x, std::min(p1.x, p2.x));
+    float maxXf = std::max(p0.x, std::max(p1.x, p2.x));
+    float minYf = std::min(p0.y, std::min(p1.y, p2.y));
+    float maxYf = std::max(p0.y, std::max(p1.y, p2.y));
+
+    int minX = (int)std::floor(minXf);
+    int maxX = (int)std::ceil(maxXf);
+    int minY = (int)std::floor(minYf);
+    int maxY = (int)std::ceil(maxYf);
+
+    if (minX < 0) minX = 0;
+    if (minY < 0) minY = 0;
+    if (maxX >= (int)width)  maxX = width - 1;
+    if (maxY >= (int)height) maxY = height - 1;
+
+    float denom = ((p1.y - p2.y) * (p0.x - p2.x) +
+                   (p2.x - p1.x) * (p0.y - p2.y));
+
+    if (fabs(denom) < 1e-8f)
+        return;
+
+    for (int y = minY; y <= maxY; ++y)
+    {
+        for (int x = minX; x <= maxX; ++x)
+        {
+            float px = x + 0.5f;
+            float py = y + 0.5f;
+
+            float w0 = ((p1.y - p2.y) * (px - p2.x) +
+                        (p2.x - p1.x) * (py - p2.y)) / denom;
+
+            float w1 = ((p2.y - p0.y) * (px - p2.x) +
+                        (p0.x - p2.x) * (py - p2.y)) / denom;
+
+            float w2 = 1.0f - w0 - w1;
+
+            if (w0 < 0.0f || w1 < 0.0f || w2 < 0.0f)
+                continue;
+
+            float z = p0.z * w0 + p1.z * w1 + p2.z * w2;
+            float& zprev = zbuffer->GetPixelRef(x, y);
+
+            if (z >= zprev)
+                continue;
+
+            zprev = z;
+
+            Color col = c0 * w0 + c1 * w1 + c2 * w2;
+            SetPixel(x, y, col);
+        }
+    }
+}
+
+void Image::DrawTriangleInterpolated(const Vector3& p0, const Vector3& p1, const Vector3& p2,
+                                     const Color& c0, const Color& c1, const Color& c2,
+                                     FloatImage* zbuffer,
+                                     Image* texture,
+                                     const Vector2& uv0, const Vector2& uv1, const Vector2& uv2)
+{
+    // Seguridad mínima
+    if (!zbuffer)
+    {
+        DrawTriangleInterpolated(p0, p1, p2, c0, c1, c2);
+        return;
+    }
+
+    if (!texture || texture->width == 0 || texture->height == 0)
+    {
+        // DEBUG: si esto aparece, NO se está usando textura
+        DrawTriangleInterpolated(p0, p1, p2, Color::BLUE, Color::BLUE, Color::BLUE, zbuffer);
+        return;
+    }
+
+
+    // Bounding box
+    float minXf = std::min(p0.x, std::min(p1.x, p2.x));
+    float maxXf = std::max(p0.x, std::max(p1.x, p2.x));
+    float minYf = std::min(p0.y, std::min(p1.y, p2.y));
+    float maxYf = std::max(p0.y, std::max(p1.y, p2.y));
+
+    int minX = (int)std::floor(minXf);
+    int maxX = (int)std::ceil(maxXf);
+    int minY = (int)std::floor(minYf);
+    int maxY = (int)std::ceil(maxYf);
+
+    if (minX < 0) minX = 0;
+    if (minY < 0) minY = 0;
+    if (maxX >= (int)width)  maxX = width - 1;
+    if (maxY >= (int)height) maxY = height - 1;
+
+    // Barycentric denominator
+    float denom = ((p1.y - p2.y) * (p0.x - p2.x) +
+                   (p2.x - p1.x) * (p0.y - p2.y));
+
+    if (fabs(denom) < 1e-8f)
+        return;
+
+    for (int y = minY; y <= maxY; ++y)
+    {
+        for (int x = minX; x <= maxX; ++x)
+        {
+            float px = x + 0.5f;
+            float py = y + 0.5f;
+
+            float w0 = ((p1.y - p2.y) * (px - p2.x) +
+                        (p2.x - p1.x) * (py - p2.y)) / denom;
+
+            float w1 = ((p2.y - p0.y) * (px - p2.x) +
+                        (p0.x - p2.x) * (py - p2.y)) / denom;
+
+            float w2 = 1.0f - w0 - w1;
+
+            // Fuera del triángulo
+            if (w0 < 0.0f || w1 < 0.0f || w2 < 0.0f)
+                continue;
+
+            // Z interpolation
+            float z = p0.z * w0 + p1.z * w1 + p2.z * w2;
+            float& zprev = zbuffer->GetPixelRef(x, y);
+
+            if (z >= zprev)
+                continue;
+
+            // ✅ Interpolar UV (NO colores)
+            Vector2 uv = uv0 * w0 + uv1 * w1 + uv2 * w2;
+
+            float u = uv.x;
+            float v = uv.y;
+            v = 1.0f - v;
+
+
+            // Clamp UV
+            if (u < 0.0f) u = 0.0f;
+            if (u > 1.0f) u = 1.0f;
+            if (v < 0.0f) v = 0.0f;
+            if (v > 1.0f) v = 1.0f;
+
+            // Convertir a espacio textura
+            int tx = (int)(u * (texture->width  - 1));
+            int ty = (int)(v * (texture->height - 1));
+
+            // Sample
+            Color texColor = texture->GetPixelSafe(tx, ty);
+
+            // Commit pixel
+            zprev = z;
+            SetPixel(x, y, texColor);
+        }
+    }
+}
+
