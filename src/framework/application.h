@@ -39,7 +39,7 @@ public:
     void OnKeyPressed(SDL_KeyboardEvent event);
     void OnMouseButtonDown(SDL_MouseButtonEvent event);
     void OnMouseButtonUp(SDL_MouseButtonEvent event);
-    void OnMouseMove(SDL_MouseButtonEvent event);
+    void OnMouseMove(SDL_MouseMotionEvent event);
     void OnWheel(SDL_MouseWheelEvent event);
     void OnFileChanged(const char* filename);
 

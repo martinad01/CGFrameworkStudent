@@ -177,12 +177,15 @@ void launchLoop(Application* app)
 					case SDL_MOUSEBUTTONUP:
 						app->OnMouseButtonUp(sdlEvent.button);
 						break;
-					case SDL_MOUSEMOTION:
-						app->OnMouseMove(sdlEvent.button);
-						break;
-					case SDL_KEYUP:  // EXAMPLE OF sync keyboard input
-						app->OnKeyPressed(sdlEvent.key);
-						break;
+                    case SDL_MOUSEMOTION:
+                        app->OnMouseMove(sdlEvent.motion);
+                        break;
+
+                    case SDL_KEYUP:
+                        app->OnKeyPressed(sdlEvent.key);
+                        break;
+
+
 					case SDL_MOUSEWHEEL:
 						app->OnWheel(sdlEvent.wheel);
 						break;

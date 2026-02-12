@@ -3,6 +3,8 @@
 #include "shader.h"
 #include "utils.h"
 #include <algorithm>
+#include <SDL.h>
+
 
 Application::Application(const char* caption, int width, int height)
 {
@@ -87,10 +89,11 @@ void Application::Init(void)
     camera3D->SetPerspective(70.0f, framebuffer.width / (float)framebuffer.height, 0.1f, 1000.0f);
     camera3D->LookAt(Vector3(0, 2, 8), Vector3(0, 0, 0), Vector3(0, 1, 0));
 
-    // Crear 3 meshes (pueden ser cubos al principio)
-    meshes[0].CreateCube(1.0f);
-    meshes[1].CreateCube(1.0f);
-    meshes[2].CreateCube(1.0f);
+    // Crear 3 meshes usando la cara (lee.obj)
+    meshes[0].LoadOBJ("meshes/lee.obj");
+    meshes[1].LoadOBJ("meshes/lee.obj");
+    meshes[2].LoadOBJ("meshes/lee.obj");
+
 
     // Link mesh->entity + parámetros base
     for (int i = 0; i < 3; ++i)
@@ -118,18 +121,21 @@ void Application::Render(void)
     framebuffer.Fill(Color(0,0,0));
 
     // 2) Dibujar 3D si está activado (Lab 2)
+    // 2) Dibujar 3D si está activado (Lab 2)
     if (show3D && camera3D)
     {
         if (renderMode == SINGLE_ENTITY)
         {
-            entities[0].RenderWireframe(&framebuffer, camera3D);
+            entities[0].Render(&framebuffer, camera3D, Color::WHITE);
         }
         else if (renderMode == MULTI_ENTITY)
         {
-            for (int i = 0; i < 3; ++i)
-                entities[i].RenderWireframe(&framebuffer, camera3D);
+            entities[0].Render(&framebuffer, camera3D, Color::WHITE);
+            entities[1].Render(&framebuffer, camera3D, Color::RED);
+            entities[2].Render(&framebuffer, camera3D, Color::RED);
         }
     }
+
 
     // 3) UI encima (Lab 1) - toolbar + botones// COMENTADO PARA LAB 2
     //framebuffer.DrawRect(0, 0, window_width, 50, Color::GRAY, 0, true, Color::GRAY);
@@ -144,6 +150,7 @@ void Application::Render(void)
     // 5) Presentar
     framebuffer.Render();
 }
+
 
 
 // Called after render
@@ -220,73 +227,64 @@ void Application::Update(float dt)
 // KEY SETUP LAB 2
 void Application::OnKeyPressed(SDL_KeyboardEvent event)
 {
-    int k = (int)event.keysym.sym;
-    if (k >= 'A' && k <= 'Z') k = k - 'A' + 'a'; // tolower sin include
+    int sym = (int)event.keysym.sym;
 
-    // Render modes
-    if (k == '1')
-        this->renderMode = SINGLE_ENTITY;
+    // normaliza letras mayúsculas
+    if (sym >= 'A' && sym <= 'Z')
+        sym = sym - 'A' + 'a';
 
-    if (k == '2')
-        this->renderMode = MULTI_ENTITY;
+    // 1 / 2
+    if (sym == '1') renderMode = SINGLE_ENTITY;
+    else if (sym == '2') renderMode = MULTI_ENTITY;
 
-    // Si no hay cámara 3D, no seguimos
-    if (!this->camera3D)
-        return;
+    if (!camera3D) return;
 
-    // Select camera property
-    if (k == 'n')
-        this->currentProperty = PROP_NEAR;
+    // N / F / V  (por char, simple)
+    if (sym == 'n') currentProperty = PROP_NEAR;
+    else if (sym == 'f') currentProperty = PROP_FAR;
+    else if (sym == 'v') currentProperty = PROP_FOV;
 
-    if (k == 'f')
-        this->currentProperty = PROP_FAR;
-
-    if (k == 'v')
-        this->currentProperty = PROP_FOV;
-    if (k == 'n') this->camera3D->fov = 70.0f;
-    if (k == 'v') this->camera3D->fov = 40.0f;
-    this->camera3D->UpdateProjectionMatrix();
-
-    // Adjust selected property
-    if (k == '+' || k == '-')
+    // + / -  (NO depende de N/F/V)
+    if (sym == '+' || sym == '-' || sym == '=')
     {
-        bool increase = (k == '+');
-        float sign = increase ? 1.0f : -1.0f;
+        // '=' por si tu teclado manda '+' como '=' (shift+'=')
+        bool isPlus = (sym == '+' || sym == '=');
+        float sign = isPlus ? 1.0f : -1.0f;
 
-        if (this->currentProperty == PROP_NEAR)
+        if (currentProperty == PROP_NEAR)
         {
-            this->camera3D->near_plane += sign * 0.1f;
+            camera3D->near_plane += sign * 0.1f;
 
-            // clamps
-            if (this->camera3D->near_plane < 0.01f)
-                this->camera3D->near_plane = 0.01f;
+            if (camera3D->near_plane < 0.01f)
+                camera3D->near_plane = 0.01f;
 
-            if (this->camera3D->near_plane > this->camera3D->far_plane - 0.1f)
-                this->camera3D->near_plane = this->camera3D->far_plane - 0.1f;
+            if (camera3D->near_plane > camera3D->far_plane - 0.1f)
+                camera3D->near_plane = camera3D->far_plane - 0.1f;
         }
-        else if (this->currentProperty == PROP_FAR)
+        else if (currentProperty == PROP_FAR)
         {
-            this->camera3D->far_plane += sign * 0.5f;
+            camera3D->far_plane += sign * 0.5f;
 
-            if (this->camera3D->far_plane < this->camera3D->near_plane + 0.1f)
-                this->camera3D->far_plane = this->camera3D->near_plane + 0.1f;
+            if (camera3D->far_plane < camera3D->near_plane + 0.1f)
+                camera3D->far_plane = camera3D->near_plane + 0.1f;
         }
-        else if (this->currentProperty == PROP_FOV)
+        else if (currentProperty == PROP_FOV)
         {
-            // "+" hace el objeto más grande => bajar FOV
-            this->camera3D->fov += (-sign) * 1.0f;
+            // '+' => objeto más grande => bajar FOV
+            camera3D->fov += (-sign) * 1.0f;
 
-            if (this->camera3D->fov < 10.0f)
-                this->camera3D->fov = 10.0f;
+            if (camera3D->fov < 10.0f)
+                camera3D->fov = 10.0f;
 
-            if (this->camera3D->fov > 120.0f)
-                this->camera3D->fov = 120.0f;
+            if (camera3D->fov > 120.0f)
+                camera3D->fov = 120.0f;
         }
 
-        // Recalcular matrices
-        this->camera3D->UpdateProjectionMatrix();
+        camera3D->UpdateProjectionMatrix();
     }
 }
+
+
 
 
 
@@ -430,61 +428,22 @@ void Application::HandleButton(ButtonType type)
 }
 
 //(MARTINA)
-void Application::OnMouseMove(SDL_MouseButtonEvent event)
+void Application::OnMouseMove(SDL_MouseMotionEvent event)
 {
-    if (!mouseDown)
-        return;
+    Vector2 new_pos((float)event.x, (float)event.y);
+    mouse_delta = new_pos - mouse_position;
+    mouse_position = new_pos;
 
-    int mx = (int)mouse_position.x;
-    int my = (int)mouse_position.y;
+    mouse_state = SDL_GetMouseState(NULL, NULL);
 
-    // pencil/eraser
-    if (tool == TOOL_PENCIL || tool == TOOL_ERASER)
-    {
-        Color c = drawingColor;
-        if (tool == TOOL_ERASER)
-            c = Color::BLACK;
+    if (!camera3D) return;
 
-        if (lastMousePosition.x >= 0 && lastMousePosition.y >= 0)
-        {
-            framebuffer.DrawLineDDA(
-                (int)lastMousePosition.x, (int)lastMousePosition.y,
-                mx, my,
-                c
-            );
-        }
-
-        lastMousePosition = mouse_position;
-        tempbuffer = framebuffer;
-    }
-    // line/rectangle
-    {
-        framebuffer = tempbuffer;
-
-        int x0 = (int)startPos.x;
-        int y0 = (int)startPos.y;
-
-        if (tool == TOOL_LINE)
-        {
-            framebuffer.DrawLineDDA(x0, y0, mx, my, drawingColor);
-        }
-        else if (tool == TOOL_RECT)
-        {
-            int rx = std::min(x0, mx);
-            int ry = std::min(y0, my);
-            int rw = std::abs(mx - x0);
-            int rh = std::abs(my - y0);
-
-            framebuffer.DrawRect(rx, ry, rw, rh, drawingColor, borderWidth, isFilled, drawingColor);
-        }
-    }
-    
+    // LEFT: orbit
     if (mouse_state & SDL_BUTTON(SDL_BUTTON_LEFT))
     {
         orbitYaw   += mouse_delta.x * 0.005f;
         orbitPitch += mouse_delta.y * 0.005f;
 
-        // clamp pitch
         if (orbitPitch > 1.5f) orbitPitch = 1.5f;
         if (orbitPitch < -1.5f) orbitPitch = -1.5f;
 
@@ -494,24 +453,53 @@ void Application::OnMouseMove(SDL_MouseButtonEvent event)
         dir.z = cosf(orbitPitch) * cosf(orbitYaw);
 
         Vector3 eye = camera3D->center - dir * orbitDistance;
-
         camera3D->LookAt(eye, camera3D->center, Vector3(0,1,0));
     }
 
+    // RIGHT: move target (pan)
+    if (mouse_state & SDL_BUTTON(SDL_BUTTON_RIGHT))
+    {
+        float speed = 0.01f * orbitDistance;
+
+        Vector3 right = camera3D->view_matrix.RightVector();
+        Vector3 up    = camera3D->view_matrix.TopVector();
+        Vector3 delta3 = (right * (-mouse_delta.x) + up * mouse_delta.y) * speed;
+
+        camera3D->center = camera3D->center + delta3;
+
+        Vector3 dir;
+        dir.x = cosf(orbitPitch) * sinf(orbitYaw);
+        dir.y = sinf(orbitPitch);
+        dir.z = cosf(orbitPitch) * cosf(orbitYaw);
+
+        Vector3 eye = camera3D->center - dir * orbitDistance;
+        camera3D->LookAt(eye, camera3D->center, Vector3(0,1,0));
+    }
+}
+
+void Application::OnWheel(SDL_MouseWheelEvent event)
+{
+    if (!camera3D) return;
+
+    orbitDistance -= event.y * 0.5f;
+    if (orbitDistance < 1.0f) orbitDistance = 1.0f;
+
+    Vector3 dir;
+    dir.x = cosf(orbitPitch) * sinf(orbitYaw);
+    dir.y = sinf(orbitPitch);
+    dir.z = cosf(orbitPitch) * cosf(orbitYaw);
+
+    Vector3 eye = camera3D->center - dir * orbitDistance;
+    camera3D->LookAt(eye, camera3D->center, Vector3(0,1,0));
 }
 
 
 //-------------------
 
 
-void Application::OnWheel(SDL_MouseWheelEvent event)
-{
-    float dy = event.preciseY;
-
-    // ...
-}
 
 void Application::OnFileChanged(const char* filename)
 {
     Shader::ReloadSingleShader(filename);
 }
+

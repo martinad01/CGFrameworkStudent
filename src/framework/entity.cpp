@@ -42,37 +42,26 @@ static bool InsideClipCube(const Vector3& p)
 }
 
 
-void Entity::RenderWireframe(Image* framebuffer, Camera* camera)
+void Entity::Render(Image* framebuffer, Camera* camera, const Color& c)
 {
     if (!mesh || !framebuffer || !camera)
         return;
 
-    // 1) vertices (ya vienen triangulados: cada 3 = 1 triángulo)
     const std::vector<Vector3>& vertices = mesh->GetVertices();
 
-    // 2) por cada triángulo
     for (size_t i = 0; i + 2 < vertices.size(); i += 3)
     {
-        Vector3 va = vertices[i];
-        Vector3 vb = vertices[i + 1];
-        Vector3 vc = vertices[i + 2];
+        Vector3 wa = model * vertices[i];
+        Vector3 wb = model * vertices[i + 1];
+        Vector3 wc = model * vertices[i + 2];
 
-        // 3) local -> world
-        // OJO: aquí puede fallar según cómo se multiplica Matrix44 en tu framework.
-        Vector3 wa = model * va;
-        Vector3 wb = model * vb;
-        Vector3 wc = model * vc;
-
-        // 4) world -> NDC (tu camera versión 2 devuelve ya NDC dividiendo por w)
         Vector3 na = camera->ProjectVector(wa);
         Vector3 nb = camera->ProjectVector(wb);
         Vector3 nc = camera->ProjectVector(wc);
 
-        // c triangles completely outside the clip cube [-1,1]^3
         if (!InsideClipCube(na) || !InsideClipCube(nb) || !InsideClipCube(nc))
             continue;
 
-        // 5) NDC -> Screen
         float x0 = (na.x * 0.5f + 0.5f) * framebuffer->width;
         float y0 = (1.0f - (na.y * 0.5f + 0.5f)) * framebuffer->height;
 
@@ -82,10 +71,62 @@ void Entity::RenderWireframe(Image* framebuffer, Camera* camera)
         float x2 = (nc.x * 0.5f + 0.5f) * framebuffer->width;
         float y2 = (1.0f - (nc.y * 0.5f + 0.5f)) * framebuffer->height;
 
-        // 6) dibujar aristas
-        framebuffer->DrawLineDDA(x0, y0, x1, y1, Color::WHITE);
-        framebuffer->DrawLineDDA(x1, y1, x2, y2, Color::WHITE);
-        framebuffer->DrawLineDDA(x2, y2, x0, y0, Color::WHITE);
+        framebuffer->DrawLineDDA(x0, y0, x1, y1, c);
+        framebuffer->DrawLineDDA(x1, y1, x2, y2, c);
+        framebuffer->DrawLineDDA(x2, y2, x0, y0, c);
+    }
+}
+
+
+
+static inline Vector3 NDCToScreen(const Vector3& ndc, int w, int h)
+{
+    float x = (ndc.x * 0.5f + 0.5f) * (float)w;
+    float y = (1.0f - (ndc.y * 0.5f + 0.5f)) * (float)h;
+    return Vector3(x, y, ndc.z);
+}
+
+void Entity::RenderTriangles(Image* framebuffer, Camera* camera, const Color& c)
+{
+    if (!mesh || !framebuffer || !camera)
+        return;
+
+    const std::vector<Vector3>& vertices = mesh->GetVertices();
+
+    for (size_t i = 0; i + 2 < vertices.size(); i += 3)
+    {
+        // Local -> World
+        Vector3 wa = model * vertices[i];
+        Vector3 wb = model * vertices[i + 1];
+        Vector3 wc = model * vertices[i + 2];
+
+        // World -> NDC
+        Vector3 na = camera->ProjectVector(wa);
+        Vector3 nb = camera->ProjectVector(wb);
+        Vector3 nc = camera->ProjectVector(wc);
+
+        // Clip cube culling (simple)
+        if (!InsideClipCube(na) || !InsideClipCube(nb) || !InsideClipCube(nc))
+            continue;
+
+        // NDC -> Screen (keep z in .z)
+        Vector3 a = NDCToScreen(na, framebuffer->width, framebuffer->height);
+        Vector3 b = NDCToScreen(nb, framebuffer->width, framebuffer->height);
+        Vector3 c2 = NDCToScreen(nc, framebuffer->width, framebuffer->height);
+
+        // Filled triangle (NECESITAMOS esta función en Image)
+        Vector2 p0(a.x, a.y);
+        Vector2 p1(b.x, b.y);
+        Vector2 p2(c2.x, c2.y);
+
+        framebuffer->DrawTriangle(
+            p0,
+            p1,
+            p2,
+            c,        // border color
+            true,     // filled
+            c         // fill color
+        );
     }
 }
 

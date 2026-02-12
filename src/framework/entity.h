@@ -21,10 +21,13 @@ public:
     Entity();
     void Update(float seconds_elapsed);
     
-    void RenderWireframe(Image* framebuffer, Camera* camera);
+    void Render(Image* framebuffer, Camera* camera, const Color& c);
     float animPhase = 0.0f;
     Vector3 basePos = Vector3(0,0,0);
     Vector3 baseScale = Vector3(1,1,1);
+    enum class eRenderMode { WIREFRAME, TRIANGLES };
+    eRenderMode mode = eRenderMode::WIREFRAME;
+    void RenderTriangles(Image* framebuffer, Camera* camera, const Color& c);
 
 
 };
